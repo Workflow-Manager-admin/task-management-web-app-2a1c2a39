@@ -2,9 +2,18 @@ import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import "./App.css";
 
-// Load Supabase credentials from environment variables
+/**
+ * Load Supabase credentials from environment variables.
+ * If variables are missing, throw an error to inform the developer.
+ * NOTE: In React scripts, env variables must be prefixed with REACT_APP_ and defined in `.env`.
+ */
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_KEY;
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  // eslint-disable-next-line no-console
+  console.error("Missing Supabase env variables (REACT_APP_SUPABASE_URL, REACT_APP_SUPABASE_KEY). Check your .env file and restart the dev server.", { SUPABASE_URL, SUPABASE_ANON_KEY });
+  alert("Error: Supabase credentials are not set. Define REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_KEY in your .env, then restart.");
+}
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ----------- Utility Functions -----------
@@ -435,7 +444,11 @@ function App() {
 
   // CRUD HANDLERS
 
+  // Error feedback state
+  const [errorMsg, setErrorMsg] = useState("");
+
   async function handleAdd(todo) {
+    setErrorMsg("");
     if (!user) return;
     const { data, error } = await supabase
       .from("todos")
@@ -443,10 +456,12 @@ function App() {
       .select()
       .single();
     if (!error && data) setTodos((t) => [data, ...t]);
+    else if (error) setErrorMsg(error.message || "Failed to add todo");
     setModalOpen(false);
   }
 
   async function handleEdit(todo) {
+    setErrorMsg("");
     const { id, ...rest } = todo;
     const { data, error } = await supabase
       .from("todos")
@@ -456,16 +471,19 @@ function App() {
       .single();
     if (!error && data) {
       setTodos((t) => t.map((item) => (item.id === id ? data : item)));
-    }
+    } else if (error) setErrorMsg(error.message || "Failed to update todo");
     setModalOpen(false);
   }
 
   async function handleDelete(id) {
+    setErrorMsg("");
     const { error } = await supabase.from("todos").delete().eq("id", id);
     if (!error) setTodos((t) => t.filter((item) => item.id !== id));
+    else if (error) setErrorMsg(error.message || "Failed to delete todo");
   }
 
   async function handleToggleComplete(todo) {
+    setErrorMsg("");
     const { id, is_complete, ...rest } = todo;
     const newVal = !is_complete;
     const { data, error } = await supabase
@@ -476,7 +494,7 @@ function App() {
       .single();
     if (!error && data) {
       setTodos((t) => t.map((item) => (item.id === id ? data : item)));
-    }
+    } else if (error) setErrorMsg(error.message || "Failed to update status");
   }
 
   async function handleLogout() {
@@ -528,6 +546,11 @@ function App() {
             </button>
           </div>
           <section>
+            {errorMsg && (
+              <div style={{color: "#c92a2a", marginBottom: "1rem"}} role="alert">
+                {errorMsg}
+              </div>
+            )}
             {loading ? (
               <div style={{ padding: "2rem" }}>Loading…</div>
             ) : (
